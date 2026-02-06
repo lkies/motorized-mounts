@@ -1,0 +1,12 @@
+# vscode settings
+.vscode/*
+
+# eagle temporary files
+electrical/**/*.b#*
+electrical/**/*.s#*
+
+# inventor backup files
+mechanical/**/OldVersions
+
+# python
+__pycache__/
