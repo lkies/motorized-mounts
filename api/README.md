@@ -8,11 +8,11 @@ You can install the package directly from this repository using PIP:
 pip install git+https://github.com/lokies/motorized-mounts.git#subdirectory=api
 ```
 
-The full API documentation for the stepper driver board is described in the [`stepper_board`](doc/stepper_board.md) module documentation. The RPC internals are described in the [`rpc`](doc/rpc.md) module.
+The full API documentation for the stepper driver board is described in the [`stepper_board`](doc/stepper_board.md) module documentation. The RPC internals are described in the [`rpc`](doc/rpc.md) module. The [`serial_socket`](doc/serial_socket.md) module provides a simple bridge between serial and TCP connections.
 
 ## Connecting to the Board
 
-The board is controlled through a [`StepperBoard`](doc/stepper_board.md#stepper_board.StepperBoard) instance. These need to be initialized with an [`RpcClient`](doc/rpc.md#rpc.RpcClient), which in turn needs to be initialized with a transport, like a [`SerialBLS`](doc/rpc.md#rpc.SerialBLS) or a [`SocketBLS`](doc/rpc.md#rpc.SocketBLS) instance. Since the board uses serial, we use a `SerialBLS`:
+The board is controlled through a [`StepperBoard`](doc/stepper_board.md#stepper_board.StepperBoard) instance. These need to be initialized with an [`RpcClient`](doc/rpc.md#rpc.RpcClient), which in turn needs to be initialized with a transport, like a [`SerialBLS`](doc/rpc.md#rpc.SerialBLS) or a [`SocketBLS`](doc/rpc.md#rpc.SocketBLS) instance. Since the board uses serial, we use a [`SerialBLS`](doc/rpc.md#rpc.SerialBLS):
 
 ```python
 from src.stepper_board import StepperBoard, RpcClient, SerialBLS
@@ -23,10 +23,24 @@ steppers = StepperBoard(RpcClient(bls))
 bls.close()
 ```
 
-The `SerialBLS` can also be used as a context manager to automatically close the wrapped serial port when done:
+The [`SerialBLS`](doc/rpc.md#rpc.SerialBLS) (and other classes inheriting from [`BidirectionalLineStream`](doc/rpc.md#rpc.BidirectionalLineStream)) can also be used as a context manager to automatically close the wrapped serial port (or other resource) when done:
 
 ```python
 with SerialBLS.connect("COM3", 115200) as bls:
+    steppers = StepperBoard(RpcClient(bls))
+    # do stuff with the steppers...
+```
+
+It is also possible to connect to the board via TCP using the [`SocketBLS`](doc/rpc.md#rpc.SocketBLS) class. For this, the serial port needs to be exposed as a TCP socket first. This can be done with tools like [ser2net](https://github.com/cminyard/ser2net) or the provided [`serial_socket`](doc/serial_socket.md) module.
+
+```bash
+python -m stepper_board.serial_socket COM3 --baudrate 115200 --host 127.0.0.1 --port 7000
+```
+
+The baud rate, host, and port are optional and default to the values shown in the example. Once the port is exposed, it can be connected in almost the same way as directly connecting to a serial port but using a [`SocketBLS`](doc/rpc.md#rpc.SocketBLS) instead of a [`SerialBLS`](doc/rpc.md#rpc.SerialBLS):
+
+```python
+with SocketBLS.connect("127.0.0.1", 7000) as bls:
     steppers = StepperBoard(RpcClient(bls))
     # do stuff with the steppers...
 ```

@@ -40,6 +40,17 @@ def write_line(line: str)
 
 Write a line to the stream
 
+<a id="rpc.BidirectionalLineStream.close"></a>
+
+#### close
+
+```python
+@abstractmethod
+def close()
+```
+
+Close the underlying transport
+
 <a id="rpc.SerialBLS"></a>
 
 ## SerialBLS Objects
@@ -102,7 +113,7 @@ A bidirectional line stream with a socket as the backend
 #### \_\_init\_\_
 
 ```python
-def __init__(sock: socket.socket)
+def __init__(sock: socket.socket, print_non_json: bool = False)
 ```
 
 Create a new SocketBLS instance from a socket
@@ -110,6 +121,7 @@ Create a new SocketBLS instance from a socket
 **Arguments**:
 
 - `sock` _socket.socket_ - The socket to use
+- `print_non_json` _bool, optional_ - Print non-json (non protocol) lines to stdout. Defaults to False.
 
 <a id="rpc.SocketBLS.connect"></a>
 
@@ -117,7 +129,7 @@ Create a new SocketBLS instance from a socket
 
 ```python
 @staticmethod
-def connect(host: str, port: int) -> Self
+def connect(host: str, port: int, print_non_json: bool = False) -> Self
 ```
 
 Connect to a socket and return a SocketBLS instance
@@ -126,6 +138,7 @@ Connect to a socket and return a SocketBLS instance
 
 - `host` _str_ - The host to connect to
 - `port` _int_ - The port to connect to
+- `print_non_json` _bool, optional_ - Print non-json (non protocol) lines to stdout. Defaults to False.
   
 
 **Returns**:

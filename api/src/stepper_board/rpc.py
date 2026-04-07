@@ -15,6 +15,12 @@ from serial import Serial
 class BidirectionalLineStream(ABC):
     """Abstract base class for a bidirectional line stream. Implementations should be able to read and write lines."""
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
     @abstractmethod
     def read_line(self) -> str:
         """Read a line from the stream and return it as a string
@@ -27,6 +33,11 @@ class BidirectionalLineStream(ABC):
     @abstractmethod
     def write_line(self, line: str):
         """Write a line to the stream"""
+        pass
+
+    @abstractmethod
+    def close(self):
+        """Close the underlying transport"""
         pass
 
 
@@ -42,12 +53,6 @@ class SerialBLS(BidirectionalLineStream):
         """
         self.serial_port = serial_port
         self.print_non_json = print_non_json
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.serial_port.close()
 
     @staticmethod
     def connect(port: str, baudrate: int, print_non_json=False) -> Self:
@@ -79,41 +84,55 @@ class SerialBLS(BidirectionalLineStream):
         self.serial_port.write(b"\n")
         self.serial_port.flush()
 
+    def close(self):
+        self.serial_port.close()
+
 
 class SocketBLS(BidirectionalLineStream):
     """A bidirectional line stream with a socket as the backend"""
 
-    def __init__(self, sock: socket.socket):
+    def __init__(self, sock: socket.socket, print_non_json: bool = False):
         """Create a new SocketBLS instance from a socket
 
         Args:
             sock (socket.socket): The socket to use
+            print_non_json (bool, optional): Print non-json (non protocol) lines to stdout. Defaults to False.
         """
         self.sock = sock
         self.socket_io = socket.SocketIO(sock, "rw")
+        self.print_non_json = print_non_json
 
     @staticmethod
-    def connect(host: str, port: int) -> Self:
+    def connect(host: str, port: int, print_non_json: bool = False) -> Self:
         """Connect to a socket and return a SocketBLS instance
 
         Args:
             host (str): The host to connect to
             port (int): The port to connect to
+            print_non_json (bool, optional): Print non-json (non protocol) lines to stdout. Defaults to False.
 
         Returns:
             SocketBLS: The SocketBLS instance
         """
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((host, port))
-        return SocketBLS(sock)
+        return SocketBLS(sock, print_non_json=print_non_json)
 
     def read_line(self) -> str:
-        return self.socket_io.readline().decode("utf-8")
+        while True:
+            line = self.socket_io.readline().decode("utf-8")
+            if line.startswith("{"):
+                return line
+            if self.print_non_json:
+                print(f"Non-json: {line}", end="")
 
     def write_line(self, line: str):
         self.socket_io.write(line.encode("utf-8"))
         self.socket_io.write(b"\n")
         self.socket_io.flush()
+
+    def close(self):
+        self.socket_io.close()
 
 
 class RpcClient:
