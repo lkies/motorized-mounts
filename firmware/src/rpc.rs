@@ -2,31 +2,31 @@ use std::collections::HashMap;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 struct Call {
-    mrpc: String,
-    call: String,
-    args: serde_json::Value,
+    jsonrpc: String,
+    method: String,
+    params: serde_json::Value,
     id: u32,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct Response {
-    mrpc: String,
+    jsonrpc: String,
     result: serde_json::Value,
     id: u32,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct Error {
-    mrpc: String,
+    jsonrpc: String,
     error: serde_json::Value,
     id: u32,
 }
 
 impl Error {
-    fn message(msg: &str, id: u32) -> Self {
+    fn message(code: i32, msg: &str, id: u32) -> Self {
         Error {
-            mrpc: "1.0".to_string(),
-            error: serde_json::json!({"message": msg}),
+            jsonrpc: "2.0".to_string(),
+            error: serde_json::json!({"code": code, "message": msg}),
             id,
         }
     }
@@ -52,23 +52,31 @@ impl<'a> Dispatcher<'a> {
 
     pub fn dispatch(&self, request: String) -> Option<String> {
         let req: Call = serde_json::from_str(&request).ok()?;
-        if req.mrpc != "1.0" {
+        if req.jsonrpc != "2.0" {
             return Some(
-                serde_json::to_string(&Error::message("unsupported mrpc version", req.id)).unwrap(),
+                serde_json::to_string(&Error::message(
+                    -32600,
+                    "unsupported jsonrpc version",
+                    req.id,
+                ))
+                .unwrap(),
             );
         }
-        let Some(handler) = self.handlers.get(&req.call) else {
-            return Some(serde_json::to_string(&Error::message("unknown method", req.id)).unwrap());
+        let Some(handler) = self.handlers.get(&req.method) else {
+            return Some(
+                serde_json::to_string(&Error::message(-32601, "unknown method", req.id)).unwrap(),
+            );
         };
-        match handler(req.args) {
+        match handler(req.params) {
             Ok(result) => match serde_json::to_string(&Response {
-                mrpc: req.mrpc,
+                jsonrpc: req.jsonrpc,
                 result,
                 id: req.id,
             }) {
                 Ok(response) => Some(response),
                 Err(_) => Some(
                     serde_json::to_string(&Error::message(
+                        -32603,
                         "response could not be serialized",
                         req.id,
                     ))
@@ -76,8 +84,12 @@ impl<'a> Dispatcher<'a> {
                 ),
             },
             Err(e) => Some(
-                serde_json::to_string(&Error::message(&format!("handler error: {}", e), req.id))
-                    .unwrap(),
+                serde_json::to_string(&Error::message(
+                    1000,
+                    &format!("handler error: {}", e),
+                    req.id,
+                ))
+                .unwrap(),
             ),
         }
     }

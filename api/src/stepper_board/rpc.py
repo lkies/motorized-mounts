@@ -179,7 +179,7 @@ class RpcClient:
             ValueError: If the remote procedure call server returns an error or the procedure errors
         """
         call_id = next(self.id_gen)
-        request = {"mrpc": "1.0", "call": method, "args": args, "id": call_id}
+        request = {"jsonrpc": "2.0", "method": method, "params": args, "id": call_id}
         self.bls.write_line(json.dumps(request))
         response = self.read_response(call_id)
         if "error" in response:

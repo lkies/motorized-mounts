@@ -1,1 +1,1 @@
-espflash save-image --chip esp32s3 target/xtensa-esp32s3-espidf/debug/stepper-driver-board image.bin --merge
+espflash save-image --chip esp32s3 target/xtensa-esp32s3-espidf/debug/stepper-driver-board firmware.bin --merge

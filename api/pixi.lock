@@ -5,6 +5,8 @@ environments:
     - url: https://conda.anaconda.org/conda-forge/
     indexes:
     - https://pypi.org/simple
+    options:
+      pypi-prerelease-mode: if-necessary-or-explicit
     packages:
       linux-64:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-20_gnu.conda
@@ -97,6 +99,8 @@ environments:
     - url: https://conda.anaconda.org/conda-forge/
     indexes:
     - https://pypi.org/simple
+    options:
+      pypi-prerelease-mode: if-necessary-or-explicit
     packages:
       linux-64:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-20_gnu.conda
@@ -1666,12 +1670,11 @@ packages:
   timestamp: 1753199211006
 - pypi: ./
   name: stepper-board
-  version: 0.1.0
-  sha256: 0304a34d241d7c4f0d7f90308d455046d4187b3a8738b9f80a67fc269eff3697
+  version: 0.2.0
+  sha256: d8187a2be8b7664517d7cc36fb4c551bb29ed2c6257d13332a5e9b322c6d37d4
   requires_dist:
   - pyserial>=3.5,<4
   requires_python: '>=3.11'
-  editable: true
 - conda: https://conda.anaconda.org/conda-forge/linux-64/tk-8.6.13-noxft_h366c992_103.conda
   sha256: cafeec44494f842ffeca27e9c8b0c27ed714f93ac77ddadc6aaf726b5554ebac
   md5: cffd3bdd58090148f4cfcd831f4b26ab
