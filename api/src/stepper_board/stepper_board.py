@@ -232,6 +232,42 @@ class StepperBoard(rpc.RpcProxy):
         pass
 
     # control functions
+    def board_name(self) -> str:
+        """Get the name of the stepper board
+
+        Returns:
+            str: The name of the stepper board
+        """
+        pass
+
+    def set_board_name(self, name: str) -> None:
+        """Set the name of the stepper board
+
+        Args:
+            name (str): The name to set for the stepper board
+        """
+        pass
+
+    def axis_name(self, index: int) -> str:
+        """Get the name of a stepper with given index
+
+        Args:
+            index (int): The index of the stepper to get the name of
+
+        Returns:
+            str: The name of the stepper
+        """
+        pass
+
+    def set_axis_name(self, index: int, name: str) -> None:
+        """Set the name of a stepper with given index
+
+        Args:
+            index (int): The index of the stepper to set the name of
+            name (str): The name to set for the stepper
+        """
+        pass
+
     def enabled(self) -> bool:
         """Query whether the physical stepper drivers (stepsticks) are enabled
 

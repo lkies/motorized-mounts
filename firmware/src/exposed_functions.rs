@@ -1,13 +1,12 @@
 use anyhow::Result;
 use esp_idf_svc::hal::gpio::{AnyOutputPin, Level, Output, OutputPin, PinDriver};
-use esp_idf_svc::nvs::{self, EspDefaultNvs, EspDefaultNvsPartition};
-use esp_idf_svc::sys::EspError;
+use esp_idf_svc::nvs::{EspDefaultNvs, EspDefaultNvsPartition};
+use esp_idf_svc::sys::{esp_efuse_mac_get_default, EspError, ESP_OK};
 use std::time::Duration;
 
 use crate::stepper_group::{JointSpeed, StepperGroup};
 use crate::{rpc, stepper};
 use critical_section::Mutex;
-use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::cmp::Ordering;
 
@@ -50,27 +49,83 @@ pub struct StepperBoard<'a> {
     group: StepperGroup<'a, MOTOR_COUNT>,
     compensations: Mutex<RefCell<CompensationControl<MOTOR_COUNT>>>,
     timeout: Mutex<RefCell<Duration>>,
-    nvs: EspDefaultNvs,
+    nvs: Mutex<RefCell<EspDefaultNvs>>,
 }
 
-fn nvs_get_f32(nvs: &EspDefaultNvs, index: usize, key: &str, default: f32) -> Result<f32> {
-    let val = nvs.get_u32(format!("s{index}.{key}").as_str())?;
+fn with_nvs<T>(
+    nvs: &Mutex<RefCell<EspDefaultNvs>>,
+    f: impl FnOnce(&EspDefaultNvs) -> core::result::Result<T, EspError>,
+) -> Result<T> {
+    Ok(critical_section::with(|cs| {
+        let nvs = nvs.borrow_ref(cs);
+        f(&nvs)
+    })?)
+}
+
+fn nvs_get_f32(
+    nvs: &Mutex<RefCell<EspDefaultNvs>>,
+    index: usize,
+    key: &str,
+    default: f32,
+) -> Result<f32> {
+    let val = with_nvs(nvs, |nvs| nvs.get_u32(format!("s{index}.{key}").as_str()))?;
     Ok(val.map(f32::from_bits).unwrap_or(default))
 }
 
-fn nvs_set_f32(nvs: &EspDefaultNvs, index: usize, key: &str, value: f32) -> Result<()> {
-    nvs.set_u32(format!("s{index}.{key}").as_str(), value.to_bits())?;
+fn nvs_set_f32(
+    nvs: &Mutex<RefCell<EspDefaultNvs>>,
+    index: usize,
+    key: &str,
+    value: f32,
+) -> Result<()> {
+    with_nvs(nvs, |nvs| {
+        nvs.set_u32(format!("s{index}.{key}").as_str(), value.to_bits())
+    })?;
     Ok(())
 }
 
-fn nvs_get_i64(nvs: &EspDefaultNvs, index: usize, key: &str, default: i64) -> Result<i64> {
-    let val = nvs.get_i64(format!("s{index}.{key}").as_str())?;
+fn nvs_get_i64(
+    nvs: &Mutex<RefCell<EspDefaultNvs>>,
+    index: usize,
+    key: &str,
+    default: i64,
+) -> Result<i64> {
+    let val = with_nvs(nvs, |nvs| nvs.get_i64(format!("s{index}.{key}").as_str()))?;
     Ok(val.unwrap_or(default))
 }
 
-fn nvs_set_i64(nvs: &EspDefaultNvs, index: usize, key: &str, value: i64) -> Result<()> {
-    nvs.set_i64(format!("s{index}.{key}").as_str(), value)?;
+fn nvs_set_i64(
+    nvs: &Mutex<RefCell<EspDefaultNvs>>,
+    index: usize,
+    key: &str,
+    value: i64,
+) -> Result<()> {
+    with_nvs(nvs, |nvs| {
+        nvs.set_i64(format!("s{index}.{key}").as_str(), value)
+    })?;
     Ok(())
+}
+
+fn nvs_get_string(nvs: &Mutex<RefCell<EspDefaultNvs>>, key: &str, default: &str) -> Result<String> {
+    with_nvs(nvs, |nvs| {
+        let len = nvs.str_len(key)?;
+        if let Some(len) = len {
+            let mut buf = vec![0u8; len];
+            nvs.get_str(key, &mut buf).map(|s| s.unwrap().to_string())
+        } else {
+            Ok(default.to_string())
+        }
+    })
+}
+
+fn board_id_string() -> String {
+    let mut mac = [0u8; 6];
+    let result = unsafe { esp_efuse_mac_get_default(mac.as_mut_ptr()) };
+    if result == ESP_OK {
+        mac.iter().map(|byte| format!("{:02X}", byte)).collect()
+    } else {
+        "000000000000".to_string()
+    }
 }
 
 impl<'a> StepperBoard<'a> {
@@ -81,7 +136,11 @@ impl<'a> StepperBoard<'a> {
         // ms2: impl OutputPin,
         mut stepper_group: StepperGroup<'a, MOTOR_COUNT>,
     ) -> Result<Self> {
-        let nvs = EspDefaultNvs::new(EspDefaultNvsPartition::take()?, "steppers", true)?;
+        let nvs = Mutex::new(RefCell::new(EspDefaultNvs::new(
+            EspDefaultNvsPartition::take()?,
+            "steppers",
+            true,
+        )?));
 
         let mut pins = ControlPins {
             en: PinDriver::output(en.downgrade_output())?,
@@ -105,12 +164,14 @@ impl<'a> StepperBoard<'a> {
             comps.hysteresis[i] = nvs_get_i64(&nvs, i, "hysteresis", 0)?;
             comps.upper_end[i] = nvs_get_i64(&nvs, i, "upper_end", 0)? != 0;
         }
-        comps.compensation_type = match nvs.get_u32("comp_type")?.unwrap_or(0) {
+        comps.compensation_type = match with_nvs(&nvs, |nvs| nvs.get_u32("comp_type"))?.unwrap_or(0)
+        {
             1 => CompensationType::Backlash,
             2 => CompensationType::Hysteresis,
             _ => CompensationType::None,
         };
-        let timeout = Duration::from_secs(nvs.get_u64("timeout")?.unwrap_or(300));
+        let timeout =
+            Duration::from_secs(with_nvs(&nvs, |nvs| nvs.get_u64("timeout"))?.unwrap_or(300));
 
         let mut board = Self {
             control_pins: Mutex::new(RefCell::new(pins)),
@@ -476,6 +537,46 @@ where
     dispatcher.register(rpc::handler!(max_accel_vec()));
 
     // board configuration functions
+    let board_name = || -> Result<String, String> {
+        nvs_get_string(
+            &board.nvs,
+            "board_name",
+            format!("Stepper Board {}", board_id_string()).as_str(),
+        )
+        .map_err(|e| e.to_string())
+    };
+    dispatcher.register(rpc::handler!(board_name()?));
+
+    let set_board_name = |name: String| -> Result<(), String> {
+        critical_section::with(|cs| {
+            let mut nvs = board.nvs.borrow_ref_mut(cs);
+            nvs.set_str("board_name", &name)
+        })
+        .map_err(|e| e.to_string())
+    };
+    dispatcher.register(rpc::handler!(set_board_name(name)?));
+
+    let axis_name = |index: usize| -> Result<String, String> {
+        verify_index(index, MOTOR_COUNT)?;
+        nvs_get_string(
+            &board.nvs,
+            format!("s{index}.name").as_str(),
+            format!("x{index}").as_str(),
+        )
+        .map_err(|e| e.to_string())
+    };
+    dispatcher.register(rpc::handler!(axis_name(index)?));
+
+    let set_axis_name = |index: usize, name: String| -> Result<(), String> {
+        verify_index(index, MOTOR_COUNT)?;
+        critical_section::with(|cs| {
+            let mut nvs = board.nvs.borrow_ref_mut(cs);
+            nvs.set_str(format!("s{index}.name").as_str(), &name)
+        })
+        .map_err(|e| e.to_string())
+    };
+    dispatcher.register(rpc::handler!(set_axis_name(index, name)?));
+
     let enabled = || -> bool { board.get_enabled() };
     dispatcher.register(rpc::handler!(enabled()));
 
@@ -528,10 +629,7 @@ where
         critical_section::with(|cs| {
             *board.timeout.borrow_ref_mut(cs) = Duration::from_secs(timeout);
         });
-        board
-            .nvs
-            .set_u64("timeout", timeout)
-            .map_err(|e| e.to_string())
+        with_nvs(&board.nvs, |nvs| nvs.set_u64("timeout", timeout)).map_err(|e| e.to_string())
     };
     dispatcher.register(rpc::handler!(set_timeout(timeout)?));
 
@@ -559,10 +657,7 @@ where
             let mut compensation = board.compensations.borrow_ref_mut(cs);
             compensation.compensation_type = compensation_type;
         });
-        board
-            .nvs
-            .set_u32("comp_type", disc)
-            .map_err(|e| e.to_string())
+        with_nvs(&board.nvs, |nvs| nvs.set_u32("comp_type", disc)).map_err(|e| e.to_string())
     };
     dispatcher.register(rpc::handler!(set_compensation(compensation_type)?));
 
@@ -641,21 +736,24 @@ where
             nvs_set_i64(&board.nvs, i, "backlash", 0).map_err(|e| e.to_string())?;
             nvs_set_i64(&board.nvs, i, "hysteresis", 0).map_err(|e| e.to_string())?;
             nvs_set_i64(&board.nvs, i, "upper_end", 0).map_err(|e| e.to_string())?;
+            critical_section::with(|cs| {
+                let mut nvs = board.nvs.borrow_ref_mut(cs);
+                nvs.remove(format!("s{i}.name").as_str())
+            })
+            .map_err(|e| e.to_string())?;
         }
         critical_section::with(|cs| {
             let mut compensation = board.compensations.borrow_ref_mut(cs);
             compensation.compensation_type = CompensationType::None;
         });
-        board
-            .nvs
-            .set_u32("comp_type", 0)
-            .map_err(|e| e.to_string())?;
+        with_nvs(&board.nvs, |nvs| nvs.set_u32("comp_type", 0)).map_err(|e| e.to_string())?;
+        with_nvs(&board.nvs, |nvs| nvs.set_u64("timeout", 300)).map_err(|e| e.to_string())?;
 
-        board
-            .nvs
-            .set_u64("timeout", 300)
-            .map_err(|e| e.to_string())?;
-
+        critical_section::with(|cs| {
+            let mut nvs = board.nvs.borrow_ref_mut(cs);
+            nvs.remove("board_name")
+        })
+        .map_err(|e| e.to_string())?;
         Ok(())
     };
     dispatcher.register(rpc::handler!(reset_config()?));

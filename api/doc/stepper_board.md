@@ -400,6 +400,68 @@ Get the maximum accelerations of all steppers
 
 - `list[float]` - The maximum accelerations of all steppers
 
+<a id="stepper_board.StepperBoard.board_name"></a>
+
+#### board\_name
+
+```python
+def board_name() -> str
+```
+
+Get the name of the stepper board
+
+**Returns**:
+
+- `str` - The name of the stepper board
+
+<a id="stepper_board.StepperBoard.set_board_name"></a>
+
+#### set\_board\_name
+
+```python
+def set_board_name(name: str) -> None
+```
+
+Set the name of the stepper board
+
+**Arguments**:
+
+- `name` _str_ - The name to set for the stepper board
+
+<a id="stepper_board.StepperBoard.axis_name"></a>
+
+#### axis\_name
+
+```python
+def axis_name(index: int) -> str
+```
+
+Get the name of a stepper with given index
+
+**Arguments**:
+
+- `index` _int_ - The index of the stepper to get the name of
+  
+
+**Returns**:
+
+- `str` - The name of the stepper
+
+<a id="stepper_board.StepperBoard.set_axis_name"></a>
+
+#### set\_axis\_name
+
+```python
+def set_axis_name(index: int, name: str) -> None
+```
+
+Set the name of a stepper with given index
+
+**Arguments**:
+
+- `index` _int_ - The index of the stepper to set the name of
+- `name` _str_ - The name to set for the stepper
+
 <a id="stepper_board.StepperBoard.enabled"></a>
 
 #### enabled

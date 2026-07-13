@@ -1,6 +1,6 @@
 [package]
 name = "stepper-driver-board"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["lkies"]
 edition = "2021"
 resolver = "2"
