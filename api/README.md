@@ -92,4 +92,4 @@ The stored position of a single stepper, or all steppers at once, can be reset t
 
 The board and axes can be named with [`set_board_name(name)`](doc/stepper_board.md#stepper_board.StepperBoard.set_board_name) and [`set_axis_name(index, name)`](doc/stepper_board.md#stepper_board.StepperBoard.set_axis_name) methods. The names can be queried with [`board_name()`](doc/stepper_board.md#stepper_board.StepperBoard.board_name) and [`axis_name(index)`](doc/stepper_board.md#stepper_board.StepperBoard.axis_name) methods.
 
-Finally, the configuration can be reset to the firmware defaults with the [`reset_config()`](doc/stepper_board.md#stepper_board.StepperBoard.reset_config) method.
+Finally, the configuration can be reset to the firmware defaults with the [`reset_config()`](doc/stepper_board.md#stepper_board.StepperBoard.reset_config) method and the firmware version can be queried with the [`firmware_version()`](doc/stepper_board.md#stepper_board.StepperBoard.firmware_version) method.

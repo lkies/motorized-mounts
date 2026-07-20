@@ -758,5 +758,12 @@ where
     };
     dispatcher.register(rpc::handler!(reset_config()?));
 
+    let firmware_version = || -> String {
+        option_env!("CARGO_PKG_VERSION")
+            .unwrap_or("unknown")
+            .to_string()
+    };
+    dispatcher.register(rpc::handler!(firmware_version()));
+
     Ok(())
 }

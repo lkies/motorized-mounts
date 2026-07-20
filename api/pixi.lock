@@ -1410,8 +1410,8 @@ packages:
   requires_python: '>=3.10'
 - pypi: ./
   name: stepper-board
-  version: 0.3.0
-  sha256: bc5a635ed719b47d1c076e01af9c317093cc68720d34361d388a4ca13ecd8a8b
+  version: 0.4.0
+  sha256: 9ef03d27b038585b4249418a6349d3e8ad686036c43703f7695eea6cf2512172
   requires_dist:
   - pyserial>=3.5,<4
   requires_python: '>=3.11'

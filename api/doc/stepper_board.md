@@ -666,3 +666,17 @@ def reset_config() -> None
 
 Reset the configuration of the stepper board to default values
 
+<a id="stepper_board.StepperBoard.firmware_version"></a>
+
+#### firmware\_version
+
+```python
+def firmware_version() -> str
+```
+
+Get the firmware version of the stepper board
+
+**Returns**:
+
+- `str` - The firmware version of the stepper board
+

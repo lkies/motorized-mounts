@@ -391,3 +391,11 @@ class StepperBoard(rpc.RpcProxy):
     def reset_config(self) -> None:
         """Reset the configuration of the stepper board to default values"""
         pass
+
+    def firmware_version(self) -> str:
+        """Get the firmware version of the stepper board
+
+        Returns:
+            str: The firmware version of the stepper board
+        """
+        pass
