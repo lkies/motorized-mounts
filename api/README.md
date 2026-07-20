@@ -5,7 +5,7 @@ The driver board is controlled via a minimalistic JSON based remote procedure ca
 You can install the package directly from this repository using PIP:
 
 ```bash
-pip install git+https://github.com/lokies/motorized-mounts.git#subdirectory=api
+pip install git+https://github.com/lkies/motorized-mounts.git#subdirectory=api
 ```
 
 The full API documentation for the stepper driver board is described in the [`stepper_board`](doc/stepper_board.md) module documentation. The RPC internals are described in the [`rpc`](doc/rpc.md) module. The [`serial_socket`](doc/serial_socket.md) module provides a simple bridge between serial and TCP connections.
@@ -15,7 +15,7 @@ The full API documentation for the stepper driver board is described in the [`st
 The board is controlled through a [`StepperBoard`](doc/stepper_board.md#stepper_board.StepperBoard) instance. These need to be initialized with an [`RpcClient`](doc/rpc.md#rpc.RpcClient), which in turn needs to be initialized with a transport, like a [`SerialBLS`](doc/rpc.md#rpc.SerialBLS) or a [`SocketBLS`](doc/rpc.md#rpc.SocketBLS) instance. Since the board uses serial, we use a [`SerialBLS`](doc/rpc.md#rpc.SerialBLS):
 
 ```python
-from src.stepper_board import StepperBoard, RpcClient, SerialBLS
+from stepper_board import StepperBoard, RpcClient, SerialBLS
 
 bls = SerialBLS.connect("COM3", 115200)
 steppers = StepperBoard(RpcClient(bls))
