@@ -51,6 +51,7 @@ To build a set of **four actuators** on two **mirrors**, you will need the follo
 | [Cat7 U/FTP 2m Ethernet Cable](https://de.rs-online.com/web/p/ethernetkabel/2660713) (optional) | 2 |
 | [Adapter-Board-Stepper](electrical/adapter-board-stepper) (optional) | 2 |
 | [Adapter-Board-Controller](electrical/adapter-board-controller) (optional) | 2 |
+| [RJ45 Socket](https://de.rs-online.com/web/p/ethernet-steckverbinder/3316443?searchId=30a561ef-d51f-4305-b438-8268e3811f80) (optional, for adapter boards) | 4 |
 
 The links for the motors, motor drivers, and driver board are not affiliate links, they are simply the first results I found. All parts are also offered by many other suppliers. If you can not find the exact same model, you should also be able to use similar parts that perform the same function.
 
