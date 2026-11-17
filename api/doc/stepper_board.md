@@ -242,6 +242,74 @@ Set the maximum acceleration of a stepper with given index
 - `index` _int_ - The index of the stepper to set the maximum acceleration of
 - `speed` _Number_ - The maximum acceleration to set
 
+<a id="stepper_board.StepperBoard.min_position"></a>
+
+#### min\_position
+
+```python
+def min_position(index: int) -> int | None
+```
+
+Get the minimum position i.e. lower position limit of a stepper with given index
+
+**Arguments**:
+
+- `index` _int_ - The index of the stepper to get the minimum position of
+  
+
+**Returns**:
+
+  int | None: The minimum position of the stepper, None if no limit is set
+
+<a id="stepper_board.StepperBoard.set_min_position"></a>
+
+#### set\_min\_position
+
+```python
+def set_min_position(index: int, position: int | None) -> None
+```
+
+Set the minimum position i.e. lower position limit of a stepper with given index
+
+**Arguments**:
+
+- `index` _int_ - The index of the stepper to set the minimum position of
+- `position` _int | None_ - The minimum position to set, or None to remove the limit
+
+<a id="stepper_board.StepperBoard.max_position"></a>
+
+#### max\_position
+
+```python
+def max_position(index: int) -> int | None
+```
+
+Get the maximum position i.e. upper position limit of a stepper with given index
+
+**Arguments**:
+
+- `index` _int_ - The index of the stepper to get the maximum position of
+  
+
+**Returns**:
+
+  int | None: The maximum position of the stepper, None if no limit is set
+
+<a id="stepper_board.StepperBoard.set_max_position"></a>
+
+#### set\_max\_position
+
+```python
+def set_max_position(index: int, position: int | None) -> None
+```
+
+Set the maximum position i.e. upper position limit of a stepper with given index
+
+**Arguments**:
+
+- `index` _int_ - The index of the stepper to set the maximum position of
+- `position` _int | None_ - The maximum position to set, or None to remove the limit
+
 <a id="stepper_board.StepperBoard.move_to_vec"></a>
 
 #### move\_to\_vec

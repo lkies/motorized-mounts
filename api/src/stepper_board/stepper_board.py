@@ -140,6 +140,46 @@ class StepperBoard(rpc.RpcProxy):
         """
         pass
 
+    def min_position(self, index: int) -> int | None:
+        """Get the minimum position i.e. lower position limit of a stepper with given index
+
+        Args:
+            index (int): The index of the stepper to get the minimum position of
+
+        Returns:
+            int | None: The minimum position of the stepper, None if no limit is set
+        """
+        pass
+
+    def set_min_position(self, index: int, position: int | None) -> None:
+        """Set the minimum position i.e. lower position limit of a stepper with given index
+
+        Args:
+            index (int): The index of the stepper to set the minimum position of
+            position (int | None): The minimum position to set, or None to remove the limit
+        """
+        pass
+
+    def max_position(self, index: int) -> int | None:
+        """Get the maximum position i.e. upper position limit of a stepper with given index
+
+        Args:
+            index (int): The index of the stepper to get the maximum position of
+
+        Returns:
+            int | None: The maximum position of the stepper, None if no limit is set
+        """
+        pass
+
+    def set_max_position(self, index: int, position: int | None) -> None:
+        """Set the maximum position i.e. upper position limit of a stepper with given index
+
+        Args:
+            index (int): The index of the stepper to set the maximum position of
+            position (int | None): The maximum position to set, or None to remove the limit
+        """
+        pass
+
     # vector functions
     def move_to_vec(self, targets: list[int], mode: str, speed: Number = LARGE_FLOAT) -> None:
         """Move all steppers to the given target positions at the given speed, blocking until all steppers have reached their targets

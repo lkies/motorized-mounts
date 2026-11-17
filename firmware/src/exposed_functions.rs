@@ -36,6 +36,8 @@ impl<const COUNT: usize> Default for CompensationControl<COUNT> {
     }
 }
 
+type Limits<const COUNT: usize> = [(Option<i64>, Option<i64>); COUNT];
+
 struct ControlPins<'a> {
     en: PinDriver<'a, AnyOutputPin, Output>,
     // pdn: PinDriver<'a, AnyOutputPin, Output>,
@@ -48,6 +50,7 @@ pub struct StepperBoard<'a> {
     control_pins: Mutex<RefCell<ControlPins<'a>>>,
     group: StepperGroup<'a, MOTOR_COUNT>,
     compensations: Mutex<RefCell<CompensationControl<MOTOR_COUNT>>>,
+    limits: Mutex<RefCell<Limits<MOTOR_COUNT>>>,
     timeout: Mutex<RefCell<Duration>>,
     nvs: Mutex<RefCell<EspDefaultNvs>>,
 }
@@ -128,6 +131,17 @@ fn board_id_string() -> String {
     }
 }
 
+fn clamp_position(mut position: i64, board: &StepperBoard, index: usize) -> i64 {
+    let limits = critical_section::with(|cs| *board.limits.borrow_ref(cs));
+    if let Some(min) = limits[index].0 {
+        position = position.max(min);
+    }
+    if let Some(max) = limits[index].1 {
+        position = position.min(max);
+    }
+    position
+}
+
 impl<'a> StepperBoard<'a> {
     pub fn new(
         en: impl OutputPin,
@@ -156,6 +170,7 @@ impl<'a> StepperBoard<'a> {
         //     .set_level((nvs.get_u32("ms2")?.unwrap_or(0) != 0).into())?;
 
         let mut comps: CompensationControl<MOTOR_COUNT> = CompensationControl::default();
+        let mut limits: Limits<MOTOR_COUNT> = [(None, None); MOTOR_COUNT];
         for (i, stepper) in stepper_group.steppers.iter_mut().enumerate() {
             stepper.set_max_speed(nvs_get_f32(&nvs, i, "max_speed", stepper.max_speed())?);
             stepper.set_max_accel(nvs_get_f32(&nvs, i, "max_accel", stepper.max_accel())?);
@@ -163,6 +178,10 @@ impl<'a> StepperBoard<'a> {
             comps.backlash[i] = nvs_get_i64(&nvs, i, "backlash", 0)?;
             comps.hysteresis[i] = nvs_get_i64(&nvs, i, "hysteresis", 0)?;
             comps.upper_end[i] = nvs_get_i64(&nvs, i, "upper_end", 0)? != 0;
+            limits[i] = (
+                with_nvs(&nvs, |nvs| nvs.get_i64(format!("s{i}.min").as_str()))?,
+                with_nvs(&nvs, |nvs| nvs.get_i64(format!("s{i}.max").as_str()))?,
+            );
         }
         comps.compensation_type = match with_nvs(&nvs, |nvs| nvs.get_u32("comp_type"))?.unwrap_or(0)
         {
@@ -177,6 +196,7 @@ impl<'a> StepperBoard<'a> {
             control_pins: Mutex::new(RefCell::new(pins)),
             group: stepper_group,
             compensations: Mutex::new(RefCell::new(comps)),
+            limits: Mutex::new(RefCell::new(limits)),
             timeout: Mutex::new(RefCell::new(timeout)),
             nvs,
         };
@@ -293,7 +313,7 @@ where
         verify_index(index, board.group.steppers.len())?;
         verify_speed(speed)?;
 
-        let mut target = target;
+        let mut target = clamp_position(target, board, index);
         let mut compensation = critical_section::with(|cs| *board.compensations.borrow_ref(cs));
         let steppers = &board.group.steppers;
 
@@ -346,7 +366,11 @@ where
         ensure_no_compensation(board)?;
         verify_index(index, board.group.steppers.len())?;
         verify_speed(speed)?;
-        let dur = board.group.steppers[index].move_to(target, Some(speed), None);
+        let dur = board.group.steppers[index].move_to(
+            clamp_position(target, board, index),
+            Some(speed),
+            None,
+        );
         Ok(dur.as_secs_f32())
     };
     dispatcher.register(rpc::handler!(set_target(index, target, sps)?));
@@ -429,10 +453,59 @@ where
     };
     dispatcher.register(rpc::handler!(set_max_accel(index, accel)?));
 
+    let min_position = |index: usize| -> Result<Option<i64>, String> {
+        verify_index(index, board.group.steppers.len())?;
+        let limits = critical_section::with(|cs| *board.limits.borrow_ref(cs));
+        Ok(limits[index].0)
+    };
+    dispatcher.register(rpc::handler!(min_position(index)?));
+
+    let set_min_position = |index: usize, value: Option<i64>| -> Result<(), String> {
+        verify_index(index, board.group.steppers.len())?;
+        critical_section::with(|cs| {
+            let mut limits = board.limits.borrow_ref_mut(cs);
+            limits[index].0 = value;
+            let mut nvs = board.nvs.borrow_ref_mut(cs);
+            match value {
+                Some(v) => nvs.set_i64(format!("s{index}.min").as_str(), v),
+                None => nvs.remove(format!("s{index}.min").as_str()).map(|_| ()),
+            }
+        })
+        .map_err(|e| e.to_string())?;
+        Ok(())
+    };
+    dispatcher.register(rpc::handler!(set_min_position(index, value)?));
+
+    let max_position = |index: usize| -> Result<Option<i64>, String> {
+        verify_index(index, board.group.steppers.len())?;
+        let limits = critical_section::with(|cs| *board.limits.borrow_ref(cs));
+        Ok(limits[index].1)
+    };
+    dispatcher.register(rpc::handler!(max_position(index)?));
+
+    let set_max_position = |index: usize, value: Option<i64>| -> Result<(), String> {
+        verify_index(index, board.group.steppers.len())?;
+        critical_section::with(|cs| {
+            let mut limits = board.limits.borrow_ref_mut(cs);
+            limits[index].1 = value;
+            let mut nvs = board.nvs.borrow_ref_mut(cs);
+            match value {
+                Some(v) => nvs.set_i64(format!("s{index}.max").as_str(), v),
+                None => nvs.remove(format!("s{index}.max").as_str()).map(|_| ()),
+            }
+        })
+        .map_err(|e| e.to_string())?;
+        Ok(())
+    };
+    dispatcher.register(rpc::handler!(set_max_position(index, value)?));
+
     // vector functions
     let move_to_vec = |targets: Vec<i64>, mode: String, speed: f32| -> Result<(), String> {
         ensure_enabled(board)?;
         let mut target_positions = verify_vec::<i64, 4>(targets)?;
+        for i in 0..MOTOR_COUNT {
+            target_positions[i] = clamp_position(target_positions[i], board, i);
+        }
         let joint_speed = parse_speed(&mode, speed)?;
 
         // board.compensations.
@@ -480,7 +553,10 @@ where
     let set_target_vec = |targets: Vec<i64>, mode: String, speed: f32| -> Result<f32, String> {
         ensure_enabled(board)?;
         ensure_no_compensation(board)?;
-        let target_positions = verify_vec::<i64, 4>(targets)?;
+        let mut target_positions = verify_vec::<i64, 4>(targets)?;
+        for i in 0..MOTOR_COUNT {
+            target_positions[i] = clamp_position(target_positions[i], board, i);
+        }
         let duration = board
             .group
             .move_to(target_positions, parse_speed(&mode, speed)?);
@@ -732,13 +808,17 @@ where
                 compensation.backlash[i] = 0;
                 compensation.hysteresis[i] = 0;
                 compensation.upper_end[i] = false;
+                let mut limits = board.limits.borrow_ref_mut(cs);
+                limits[i] = (None, None);
             });
             nvs_set_i64(&board.nvs, i, "backlash", 0).map_err(|e| e.to_string())?;
             nvs_set_i64(&board.nvs, i, "hysteresis", 0).map_err(|e| e.to_string())?;
             nvs_set_i64(&board.nvs, i, "upper_end", 0).map_err(|e| e.to_string())?;
-            critical_section::with(|cs| {
+            critical_section::with(|cs| -> Result<bool, EspError> {
                 let mut nvs = board.nvs.borrow_ref_mut(cs);
-                nvs.remove(format!("s{i}.name").as_str())
+                nvs.remove(format!("s{i}.name").as_str())?;
+                nvs.remove(format!("s{i}.min").as_str())?;
+                nvs.remove(format!("s{i}.max").as_str())
             })
             .map_err(|e| e.to_string())?;
         }
